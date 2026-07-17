@@ -1,0 +1,5 @@
+.env
+__pycache__/
+*.pyc
+.ff_calendar_cache.json
+packet.json
