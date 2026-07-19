@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .ff_calendar_cache.json
 packet.json
+radar.json
