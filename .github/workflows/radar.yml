@@ -1,0 +1,83 @@
+# Forward Radar pipeline: scan -> radar -> dashboard -> Telegram -> Vercel.
+#
+# Runs every weekday at 20:35 SGT (12:35 UTC, 08:35 ET premarket), or on
+# demand from the Actions tab. Needs three repository secrets
+# (Settings > Secrets and variables > Actions):
+#   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID  for the Telegram push
+#   VERCEL_TOKEN                           for the site deploy
+# Steps that are missing their secret skip cleanly instead of failing.
+
+name: Forward Radar
+
+on:
+  schedule:
+    - cron: "35 12 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: radar
+  cancel-in-progress: false
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scan (packet.json feeds the earnings section)
+        continue-on-error: true
+        timeout-minutes: 12
+        run: python scan.py
+
+      - name: Build radar and dashboard
+        run: |
+          python radar.py
+          python render_radar.py
+
+      - name: Commit generated dashboard
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/radar*.html
+          if git diff --cached --quiet; then
+            echo "no dashboard changes to commit"
+          else
+            git commit -m "Radar $(date -u +%F)"
+            git pull --rebase origin "${{ github.ref_name }}"
+            git push
+          fi
+
+      - name: Telegram push
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "telegram secrets not set, skipping push"
+          else
+            python notify_radar.py
+          fi
+
+      - name: Deploy site to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_zQec9Vu48HfwjPhRAA094452
+          VERCEL_PROJECT_ID: prj_zV4sU73RAl9SzwahRce9B28Rvojp
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN not set, skipping deploy"
+          else
+            npx vercel@latest deploy reports --prod --yes --token "$VERCEL_TOKEN"
+          fi
