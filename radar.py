@@ -232,12 +232,14 @@ def composite_score(comps):
 # ---------------- info tiles (context, not scored) ----------------
 
 def tenor_yield(closes, sym):
-    """^TNX / ^IRX quote yield x10; returns (pct_now, bp_change_20d)."""
+    """^TNX / ^IRX come back from yfinance already in percent (e.g. 4.57).
+
+    Returns (pct_now, bp_change_20d)."""
     ser = closes.get(sym)
     if ser is None:
         return None, None
-    now = float(ser.iloc[-1]) / 10.0
-    bp = (float(ser.iloc[-1]) - float(ser.iloc[-21])) * 10.0 if len(ser) > 20 else None
+    now = float(ser.iloc[-1])
+    bp = (float(ser.iloc[-1]) - float(ser.iloc[-21])) * 100.0 if len(ser) > 20 else None
     return round(now, 2), round(bp, 0) if bp is not None else None
 
 
