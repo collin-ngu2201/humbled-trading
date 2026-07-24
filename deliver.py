@@ -60,7 +60,8 @@ def main():
         print("email skipped, set RESEND_API_KEY + EMAIL_TO (.env or environment)")
         return 0
 
-    subject = f"AI Premarket Report - {report_date(path)}"
+    prefix = "Forward Radar" if path.name.startswith("radar") else "AI Premarket Report"
+    subject = f"{prefix} - {report_date(path)}"
     try:
         r = requests.post(
             RESEND_URL,

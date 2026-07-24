@@ -1,17 +1,17 @@
-# Forward Radar pipeline: scan -> radar -> dashboard -> Telegram -> Vercel.
+# Forward Radar pipeline: scan -> radar -> dashboard -> Telegram -> email -> Vercel.
 #
-# Runs every weekday at 20:35 SGT (12:35 UTC, 08:35 ET premarket), or on
-# demand from the Actions tab. Needs three repository secrets
+# Triggered via workflow_dispatch only: an external scheduler fires it at
+# 20:30 SGT on weekdays because GitHub's own cron queue ran this repo's
+# schedule ~2 hours late every day. Repository secrets
 # (Settings > Secrets and variables > Actions):
 #   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID  for the Telegram push
+#   RESEND_API_KEY / EMAIL_TO              for the email copy
 #   VERCEL_TOKEN                           for the site deploy
 # Steps that are missing their secret skip cleanly instead of failing.
 
 name: Forward Radar
 
 on:
-  schedule:
-    - cron: "35 12 * * 1-5"
   workflow_dispatch:
 
 permissions:
@@ -68,6 +68,17 @@ jobs:
             echo "telegram secrets not set, skipping push"
           else
             python notify_radar.py
+          fi
+
+      - name: Email dashboard
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ] || [ -z "$EMAIL_TO" ]; then
+            echo "email secrets not set, skipping email"
+          else
+            python deliver.py reports/radar.html
           fi
 
       - name: Deploy site to Vercel
