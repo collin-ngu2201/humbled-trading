@@ -13,6 +13,9 @@ name: Forward Radar
 
 on:
   workflow_dispatch:
+  push:
+    branches: [master]
+    paths: [".radar-trigger"]
 
 permissions:
   contents: write
