@@ -1,6 +1,7 @@
 # Forward Radar pipeline: scan -> radar -> dashboard -> Telegram -> email -> Vercel.
 #
-# Delivery target is 20:30 SGT (12:30 UTC, 08:30 ET premarket) on weekdays.
+# Delivery target is 20:30 SGT (12:30 UTC, 08:30 ET premarket), every day.
+# Weekend runs still publish: the data reflects the last trading session.
 # GitHub's cron queue has been handing this repo its scheduled runs about
 # two hours late, so the cron fires 2h10m EARLY and the first step waits
 # out the remainder: an on-time queue sleeps until 12:30, a delayed queue
@@ -20,7 +21,7 @@ name: Forward Radar
 
 on:
   schedule:
-    - cron: "20 10 * * 1-5"
+    - cron: "20 10 * * *"
   workflow_dispatch:
   push:
     branches: [master]
