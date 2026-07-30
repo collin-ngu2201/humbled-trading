@@ -30,7 +30,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: radar
+  # keyed by event so an on-demand run never queues behind a scheduled run
+  # that is still holding for 12:30 UTC
+  group: radar-${{ github.event_name }}
   cancel-in-progress: false
 
 jobs:
