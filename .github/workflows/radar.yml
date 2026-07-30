@@ -1,9 +1,16 @@
 # Forward Radar pipeline: scan -> radar -> dashboard -> Telegram -> email -> Vercel.
 #
-# Triggered via workflow_dispatch only: an external scheduler fires it at
-# 20:30 SGT on weekdays because GitHub's own cron queue ran this repo's
-# schedule ~2 hours late every day. Repository secrets
-# (Settings > Secrets and variables > Actions):
+# Delivery target is 20:30 SGT (12:30 UTC, 08:30 ET premarket) on weekdays.
+# GitHub's cron queue has been handing this repo its scheduled runs about
+# two hours late, so the cron fires 2h10m EARLY and the first step waits
+# out the remainder: an on-time queue sleeps until 12:30, a delayed queue
+# sleeps less, and a queue later than 12:30 starts immediately. Delivery
+# therefore lands at 12:30 UTC unless GitHub is more than 2h10m behind.
+#
+# Also runs on demand (Actions > Run workflow) and on any push to
+# .radar-trigger; neither waits.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
 #   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID  for the Telegram push
 #   RESEND_API_KEY / EMAIL_TO              for the email copy
 #   VERCEL_TOKEN                           for the site deploy
@@ -12,6 +19,8 @@
 name: Forward Radar
 
 on:
+  schedule:
+    - cron: "20 10 * * 1-5"
   workflow_dispatch:
   push:
     branches: [master]
@@ -27,8 +36,22 @@ concurrency:
 jobs:
   radar:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # generous: a scheduled run may idle up to 2h10m before doing any work
+    timeout-minutes: 200
     steps:
+      # Public repo, so runner minutes are free and idling costs nothing.
+      - name: Hold until 12:30 UTC (20:30 SGT)
+        if: github.event_name == 'schedule'
+        run: |
+          target=$(date -u -d "$(date -u +%F) 12:30:00" +%s)
+          now=$(date -u +%s)
+          if [ "$now" -lt "$target" ]; then
+            echo "queued $(date -u +%H:%M) UTC, holding $(( (target - now) / 60 ))m for the 12:30 target"
+            sleep $(( target - now ))
+          else
+            echo "queued $(date -u +%H:%M) UTC, already $(( (now - target) / 60 ))m past target, running now"
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
